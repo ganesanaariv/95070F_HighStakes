@@ -45,65 +45,19 @@ ZERO_TRACKER_ODOM,
 
 
 //Left Motors:
-motor_group(leftFront,leftMid,leftBack),
-
-
+  motor_group(leftFront,leftMid,leftBack),
 //Right Motors:
-
-
-motor_group(rightFront, rightBack, rightMid),
-
-
-
+  motor_group(rightFront, rightBack, rightMid),
 
 PORT20,
 
+3.25, 0.8,
 
-
-
-
-
-3.25,
-
-
-
-
-0.8,
-
-
-//Gyro scale, this is what gyro reads when you spin the robot 360 degrees.
-
-
-//CHANGED
-
-
-//CHANGED
-//CHANGED
-//CHANGED
-//CHANGED
-
+//Gyro scale, this is what inertial reads when bot spins 360 degrees.
 
 360,
 
-
-//CHANGED
-//CHANGED
-//CHANGED
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+//Unused bc no holonomic drive
 
 //LF: //RF:
 PORT2, -PORT20,
@@ -113,6 +67,7 @@ PORT2, -PORT20,
 PORT17, -PORT11,
 
 
+//JAR ODOM setup
 
 
 //If you are using position tracking, this is the Forward Tracker port (the tracker which runs parallel to the direction of the chassis).
@@ -120,24 +75,19 @@ PORT17, -PORT11,
 //If this is an encoder, enter the port as an integer. Triport A will be a "1", Triport B will be a "2", etc.
 3,
 
-
 //Input the Forward Tracker diameter (reverse it to make the direction switch):
 3.25,
-
 
 //Input Forward Tracker center distance (a positive distance corresponds to a tracker on the right side of the robot, negative is left.)
 //For a zero tracker tank drive with odom, put the positive distance from the center of the robot to the right side of the drive.
 //This distance is in inches:
 5.75,
 
-
 //Input the Sideways Tracker Port, following the same steps as the Forward Tracker Port:
 1,
 
-
 //Sideways tracker diameter (reverse to make the direction switch):
 -2.75,
-
 
 //Sideways tracker center distance (positive distance is behind the center of the robot, negative is in front):
 5.5
@@ -147,498 +97,419 @@ PORT17, -PORT11,
 
 
 
-
-
-
-
-
-
-//defining minitasks
+//AntiJam code stopper variable
 
 bool codestopper129 = false;
 
 
 
 
-
-
-
 void arcadeDrive(){ 
-float throttle = deadband(controller(primary).Axis3.value(), 1);
-float turn = deadband(controller(primary).Axis1.value(), 12);
-leftFront.spin(fwd, to_volt(throttle+turn), percent);
-leftMid.spin(fwd, to_volt(throttle+turn), percent);
-leftBack.spin(fwd, to_volt(throttle+turn), percent);
-rightFront.spin(fwd, to_volt(throttle-turn), percent);
-rightMid.spin(fwd, to_volt(throttle-turn), percent);
-rightBack.spin(fwd, to_volt(throttle-turn), percent);
-}
+  
+  float throttle = deadband(controller(primary).Axis3.value(), 1);
+  float turn = deadband(controller(primary).Axis1.value(), 12);
+  leftFront.spin(fwd, to_volt(throttle+turn), percent);
+  leftMid.spin(fwd, to_volt(throttle+turn), percent);
+  leftBack.spin(fwd, to_volt(throttle+turn), percent);
+  rightFront.spin(fwd, to_volt(throttle-turn), percent);
+  rightMid.spin(fwd, to_volt(throttle-turn), percent);
+  rightBack.spin(fwd, to_volt(throttle-turn), percent);
 
-
-
-
-
-
-
-
-
-
-
-
+  }
 
 
 void ThrowAwayBlue() {
 
+  color blue = color((0, 0, 255));
 
-color blue = color((0, 0, 255));
+  if (colorsorter1.color() == blue) {
+  Controller1.rumble("...");
+  sorter.set(true);
+  wait(1000,msec);
+  sorter.set(false);
+  //Intake.stop(hold);
 
-
-if (colorsorter1.color() == blue) {
-Controller1.rumble("...");
-sorter.set(true);
-wait(1000,msec);
-sorter.set(false);
-//Intake.stop(hold);
-
-
+  }
 }
-}
-
-
-
-
-
 
 
 
 void ThrowAwayRed() {
-// Controller1.rumble("...");
 
+  colorsorter1.setLightPower(100,percent);
 
-colorsorter1.setLightPower(100,percent);
+  if (colorsorter1.color() == red) {
+  Controller1.rumble("...");
+  sorter.set(true);
+  wait(1000,msec);
+  sorter.set(false);
+  //Intake.stop(hold);
 
-
-if (colorsorter1.color() == red) {
-Controller1.rumble("...");
-sorter.set(true);
-wait(1000,msec);
-sorter.set(false);
-//Intake.stop(hold);
-
-
+  }
 }
-}
-
-
-
-
-
 
 void driveCurved(double targetPosition, double speed, int curve, double kp) {
-// Reset the motor positions
-leftFront.resetPosition();
-leftMid.resetPosition();
-leftBack.resetPosition();
-rightFront.resetPosition();
-rightMid.resetPosition();
-rightBack.resetPosition();
+  // reset motor positions
+  leftFront.resetPosition();
+  leftMid.resetPosition();
+  leftBack.resetPosition();
+  rightFront.resetPosition();
+  rightMid.resetPosition();
+  rightBack.resetPosition();
+
+  //stop all motors
+  leftFront.stop(brake);
+  leftMid.stop(brake);
+  leftBack.stop(brake);
+  rightFront.stop(brake);
+  rightMid.stop(brake);
+  rightBack.stop(brake);
+
+  double realTarget = (targetPosition * 15); //scales up the target so inputted numbers can be lower
+  double error = 0.0;
+  double output = 0.0;
 
 
-leftFront.stop(brake);
-leftMid.stop(brake);
-leftBack.stop(brake);
-rightFront.stop(brake);
-rightMid.stop(brake);
-rightBack.stop(brake);
+  double tolerance = 5.0;
+  double speedLimit = (speed / 200);
 
 
-//double kp = 0.7;
+  while (true) {
 
 
-double realTarget = (targetPosition * 15);
-double error = 0.0;
-double output = 0.0;
-
-
-double tolerance = 5.0;
-double speedLimit = (speed / 200);
-
-
-while (true) {
-
-
-// error
-double currentPosition = (leftFront.position(degrees) + rightFront.position(degrees)) / 2;
-error = realTarget - currentPosition;
+  // error
+  double currentPosition = (leftFront.position(degrees) + rightFront.position(degrees)) / 2;
+  error = realTarget - currentPosition;
 
 
 
 
-output = kp * error;
+  output = kp * error;
 
 
-//stops output from overheating motors
-if (output > 100.0) {
-output = 100.0;
-} else if (output < -100.0) {
-output = -100.0;
-}
+  //stops output from overheating motors
+  if (output > 100.0) {
+  output = 100.0;
+  } else if (output < -100.0) {
+  output = -100.0;
+  }
 
 
-// adjust output for curve
-double leftSpeed = output;
-double rightSpeed = output;
+  // adjust output for curve
+  double leftSpeed = output;
+  double rightSpeed = output;
 
 
-// positive curve = right motors slower
-if (curve > 0) {
-rightSpeed = output - (output * curve / 100);
-}
-// negative curve = left motors slower
-else if (curve < 0) {
-leftSpeed = output - (output * (-curve) / 100);
-}
+  // positive curve = right motors slower
+  if (curve > 0) {
+  rightSpeed = output - (output * curve / 100);
+  }
+  // negative curve = left motors slower
+  else if (curve < 0) {
+  leftSpeed = output - (output * (-curve) / 100);
+  }
 
 
-// gives max speed
-leftSpeed *= speedLimit;
-rightSpeed *= speedLimit;
+  // gives max speed
+  leftSpeed *= speedLimit;
+  rightSpeed *= speedLimit;
 
 
-// spins motors
-leftFront.spin(forward, leftSpeed, percent);
-leftMid.spin(forward, leftSpeed, percent);
-leftBack.spin(forward, leftSpeed, percent);
-rightFront.spin(forward, rightSpeed, percent);
-rightMid.spin(forward, rightSpeed, percent);
-rightBack.spin(forward, rightSpeed, percent);
+  // spins motors
+  leftFront.spin(forward, leftSpeed, percent);
+  leftMid.spin(forward, leftSpeed, percent);
+  leftBack.spin(forward, leftSpeed, percent);
+  rightFront.spin(forward, rightSpeed, percent);
+  rightMid.spin(forward, rightSpeed, percent);
+  rightBack.spin(forward, rightSpeed, percent);
 
 
-// checks if error <tolerace
-if (fabs(error) < tolerance) {
-// Stop all motors
-leftFront.stop();
-leftMid.stop();
-leftBack.stop(brake);
-rightFront.stop();
-rightMid.stop();
-rightBack.stop(brake);
-vex::task::sleep(20); // wait so commands have time to work
-break; // exit
-}
+  // checks if error is less than tolerace
+  if (fabs(error) < tolerance) {
+  // Stop all motors
+  leftFront.stop();
+  leftMid.stop();
+  leftBack.stop(brake);
+  rightFront.stop();
+  rightMid.stop();
+  rightBack.stop(brake);
+  wait(20,msec);
+  break; 
+  }
 
 
-vex::task::sleep(20);
+  wait(20,msec);
 }
 }
 
 
 
+//test wallstakes macros using IME's
 
 void WallStakesMacro(double targetPosition){
 
+  double kp = 0.1;
 
-double kp = 0.1;
+  WallStakes.resetPosition();
+  WallStakes.setPosition(0,degrees);
 
-WallStakes.resetPosition();
-WallStakes.setPosition(0,degrees);
-
-double realTarget = (targetPosition*15);
-double error = 0.0;
-double output = 0.0;
-
-
-double tolerance = 1.0;
-double speedLimit = 50;
+  double realTarget = (targetPosition*15);
+  double error = 0.0;
+  double output = 0.0;
 
 
-while (true) {
-// get the error
-double currentPosition = WallStakes.position(degrees); // motor positions
-error = realTarget - currentPosition;
+  double tolerance = 1.0;
+  double speedLimit = 50;
 
 
-// output
-output = kp * error;
+  while (true) {
+  // get the error
+  double currentPosition = WallStakes.position(degrees); // motor positions
+  error = realTarget - currentPosition;
 
 
-if (output > 100.0) {
-output = 100.0;
-} else if (output < -100.0) {
-output = -100.0;
+  // output
+  output = kp * error;
+
+
+  if (output > 100.0) {
+  output = 100.0;
+  } else if (output < -100.0) {
+  output = -100.0;
+  }
+
+  output *= speedLimit; 
+
+
+  // spins motors
+  WallStakes.spin(forward, output, percent);
+
+  // checks to see if within tolerance
+  if (fabs(error) < tolerance) {
+  // Stop all motors
+
+  wait(20,msec); // wait so commands have time to work
+  break; // 
+  }
+
+
+  wait(20,msec); 
+  }
+
 }
 
-output *= speedLimit; 
-
-
-// spins motors
-WallStakes.spin(forward, output, percent);
-
-// checks to see if within tolerance
-if (fabs(error) < tolerance) {
-// Stop all motors
-
-wait(20,msec); // wait so commands have time to work
-break; // 
-}
-
-
-wait(20,msec); //
-}
-
-}
-
-//old P function, unused now
+//Old P function, unused now
 
 void driveForward(double targetPosition,double speed,double kp){
-// Reset the motor positions
-leftFront.resetPosition();
-leftMid.resetPosition();
-leftBack.resetPosition();
-rightFront.resetPosition();
-rightMid.resetPosition();
-rightBack.resetPosition();
+  // reset the motor positions
+  leftFront.resetPosition();
+  leftMid.resetPosition();
+  leftBack.resetPosition();
+  rightFront.resetPosition();
+  rightMid.resetPosition();
+  rightBack.resetPosition();
 
 
-leftFront.stop(brake);
-leftMid.stop(brake);
-leftBack.stop(brake);
-rightFront.stop(brake);
-rightMid.stop(brake);
-rightBack.stop(brake);
+  leftFront.stop(brake);
+  leftMid.stop(brake);
+  leftBack.stop(brake);
+  rightFront.stop(brake);
+  rightMid.stop(brake);
+  rightBack.stop(brake);
 
-//double kp = 0.7;
-
-
-double realTarget = (targetPosition*15);
-double error = 0.0;
-double output = 0.0;
+  //double kp = 0.7;
 
 
-double tolerance = 5.0;
-double speedLimit = (speed/200); //max speed cap is 50 percent
+  double realTarget = (targetPosition*15);
+  double error = 0.0;
+  double output = 0.0;
 
 
-while (true) {
-//error
-double currentPosition = (leftFront.position(degrees) + rightFront.position(degrees)) / 2; // dt motor positions
-error = realTarget - currentPosition;
+  double tolerance = 5.0;
+  double speedLimit = (speed/200); //max speed cap is 50 percent
+
+
+  while (true) {
+  //error
+  double currentPosition = (leftFront.position(degrees) + rightFront.position(degrees)) / 2; // dt motor positions
+  error = realTarget - currentPosition;
 
 
 
-output = kp * error;
+  output = kp * error;
 
 
-//limits output to |100|
-if (output > 100.0) {
-output = 100.0;
-} else if (output < -100.0) {
-output = -100.0;
+  //limits output to |100|
+  if (output > 100.0) {
+  output = 100.0;
+  } else if (output < -100.0) {
+  output = -100.0;
+  }
+
+
+
+
+  output *= speedLimit; // multiplies value by speed limit to get the right speed
+
+
+  // spins motors
+  leftFront.spin(forward, output, percent);
+  leftMid.spin(forward, output, percent);
+  leftBack.spin(forward, output, percent);
+  rightFront.spin(forward, output, percent);
+  rightMid.spin(forward, output, percent);
+  rightBack.spin(forward, output, percent);
+  // checks to see if within tolerance
+  if (fabs(error) < tolerance) {
+  // Stop all motors
+  leftFront.stop();
+  leftMid.stop();
+  leftBack.stop(brake); //only back wheels stopped to prevent them from bouncing up
+  rightFront.stop();
+  rightMid.stop();
+  rightBack.stop(brake);
+  wait(20,msec); // wait so commands have time to work
+  break; 
+  }
+
+
+  wait(20,msec); 
+
+  }
 }
-
-
-
-
-output *= speedLimit; // multiplies value by speed limit to get the right speed
-
-
-// spins motors
-leftFront.spin(forward, output, percent);
-leftMid.spin(forward, output, percent);
-leftBack.spin(forward, output, percent);
-rightFront.spin(forward, output, percent);
-rightMid.spin(forward, output, percent);
-rightBack.spin(forward, output, percent);
-// checks to see if within tolerance
-if (fabs(error) < tolerance) {
-// Stop all motors
-leftFront.stop();
-leftMid.stop();
-leftBack.stop(brake); //only back wheels stopped to prevent them from bouncing up
-rightFront.stop();
-rightMid.stop();
-rightBack.stop(brake);
-wait(20,msec) // wait so commands have time to work
-break; 
-}
-
-
-wait(20,msec); 
-
-}
-}
-
-
-
-
-/* Controller1.Screen.print(Upper.current());
-Controller1.rumble("...");
-Upper.spin(reverse,100,percent);
-wait(750,msec);
-Upper.spin(forward,100,percent);
-
-
-*/
 
 
 vex::task antiJamCode() {
 
+  while(1){
 
-while(1){
+    wait(10,msec);
 
+    Controller1.rumble("...");
+    Controller1.Screen.clearScreen();
+    Controller1.Screen.setCursor(1, 1);
 
-wait(10,msec);
+    Controller1.Screen.print(Upper.current());
 
+    if (Upper.current()>2) {
+    
+     wait(500,msec);
 
-Controller1.rumble("...");
-Controller1.Screen.clearScreen();
-Controller1.Screen.setCursor(1, 1);
+    if (Upper.current()>2) {
 
+      Controller1.Screen.print(Upper.current());
+      Controller1.rumble("...");
+      Upper.spin(reverse,100,percent);
+      wait(250,msec);
+      Upper.spin(forward,100,percent);
 
-
-
-Controller1.Screen.print(Upper.current());
-
-if (Upper.current()>2) {
-
-wait(500,msec);
-
-if (Upper.current()>2) {
-
-Controller1.Screen.print(Upper.current());
-Controller1.rumble("...");
-Upper.spin(reverse,100,percent);
-wait(250,msec);
-Upper.spin(forward,100,percent);
-
-}
-
-}
-
-
-}
-
+      }
+    }
+  }
  }
+
+
 
  double intakestopthreesec = 0.5; //variable to stop antijam from working in corners (current spike always triggers it)
 
 vex::task ColorSortRed() {
 
 
- while(1){
+  while(1){
 
- colorsorter1.setLightPower(100,percent);
- colorsorter2.setLightPower(100,percent);
- Controller1.Screen.clearScreen();
- Controller1.Screen.setCursor(1, 1);
+    colorsorter1.setLightPower(100,percent);
+    colorsorter2.setLightPower(100,percent);
+    Controller1.Screen.clearScreen();
+    Controller1.Screen.setCursor(1, 1);
 
- //Controller1.Screen.print(Intake.current()); //debugging
- 
- 
- Controller1.Screen.print(colorsorter1.color());
- 
- if (Intake.current()>2.5 and intakestopthreesec==0.5) {
- wait(500,msec); //to prevent antijams for momentary high voltage.
- if (Intake.current()>2.5) {
- 
- Controller1.Screen.print(Intake.current());
- Intake.spin(reverse,100,percent);
- wait(250,msec);
- Intake.spin(forward,100,percent);
- wait(250,msec);
- 
- }
- }
- 
- 
+    //Controller1.Screen.print(Intake.current()); //debugging
+    
+    
+    Controller1.Screen.print(colorsorter1.color());
+    
+    if (Intake.current()>2.5 and intakestopthreesec==0.5) {
+    wait(500,msec); //to prevent antijams for momentary high voltage.
+    if (Intake.current()>2.5) {
+    
+    Controller1.Screen.print(Intake.current());
+    Intake.spin(reverse,100,percent);
+    wait(250,msec);
+    Intake.spin(forward,100,percent);
+    wait(250,msec);
+    
+    }
+    }
+        
+    if (colorsorter1.color() == red and colorsorter1.isNearObject() or colorsorter2.color() == red and colorsorter2.isNearObject()) {
+    
+    Intake.stop();
+    sorter.set(true);
+    wait(100,msec);
 
- 
- if (colorsorter1.color() == red and colorsorter1.isNearObject() or colorsorter2.color() == red and colorsorter2.isNearObject()) {
- 
- Intake.stop();
- sorter.set(true);
- wait(100,msec);
-
- Intake.spin(forward,100,percent);
- 
- wait(1000,msec);
- 
- sorter.set(false);
- 
- 
- Controller1.rumble("..."); //lets driver know that the ring is sorting
- 
- }
- 
- /*
- else if (intakestopthreesec > 0.5) {
- 
- wait(3000,msec);
- intakestopthreesec = 0.5;
- }
- */
- }
+    Intake.spin(forward,100,percent);
+    
+    wait(1000,msec);
+    
+    sorter.set(false);
+    
+    
+    Controller1.rumble("..."); //lets driver know that the ring is sorting
+    
+    }
+    
+    /*
+    else if (intakestopthreesec > 0.5) {
+    
+    wait(3000,msec);
+    intakestopthreesec = 0.5;
+    }
+    */
+  }
 
 }
 
 vex::task ColorSortBlue() {
 
-while(1){
+  while(1){
 
-colorsorter1.setLightPower(100,percent);
-colorsorter2.setLightPower(100,percent);
-Controller1.Screen.clearScreen();
-Controller1.Screen.setCursor(1, 1);
-//Controller1.Screen.print(Intake.current());
+    colorsorter1.setLightPower(100,percent);
+    colorsorter2.setLightPower(100,percent);
+    Controller1.Screen.clearScreen();
+    Controller1.Screen.setCursor(1, 1);
+    //Controller1.Screen.print(Intake.current());
 
+    Controller1.Screen.print(colorsorter1.color());
 
-Controller1.Screen.print(colorsorter1.color());
+    if (Intake.current()>2.4 and intakestopthreesec==0.5) {
+    Controller1.rumble("...");
+    wait(500,msec);
+    if (Intake.current()>2.5) {
 
-if (Intake.current()>2.4 and intakestopthreesec==0.5) {
-Controller1.rumble("...");
-wait(500,msec);
-if (Intake.current()>2.5) {
+    Controller1.Screen.print(Intake.current());
+    Intake.spin(reverse,100,percent);
+    wait(250,msec);
+    Intake.spin(forward,100,percent);
+    wait(250,msec);
 
-Controller1.Screen.print(Intake.current());
-Intake.spin(reverse,100,percent);
-wait(250,msec);
-Intake.spin(forward,100,percent);
-wait(250,msec);
+    }
+    }
 
-}
-}
+    if (colorsorter1.color() == blue and colorsorter1.isNearObject() or colorsorter2.color() == blue and colorsorter2.isNearObject()) {
 
+    Intake.stop();
+    sorter.set(true);
+    wait(100,msec);
+    Intake.spin(forward,100,percent);
+    wait(1000,msec);
 
+    sorter.set(false);
 
-if (colorsorter1.color() == blue and colorsorter1.isNearObject() or colorsorter2.color() == blue and colorsorter2.isNearObject()) {
+    Controller1.rumble("..."); //lets me know that ring is sorting
 
-Intake.stop();
-sorter.set(true);
-wait(100,msec);
-Intake.spin(forward,100,percent);
-wait(1000,msec);
-
-sorter.set(false);
-
-Controller1.rumble("..."); //lets me know that ring is sorting
-
- }
-
-/*
-else if (intakestopthreesec > 0.5) {
-
-wait(7000,msec);
-intakestopthreesec = 0.5;
-
- }
- */
-}
+      }
+   }
 
 }
-
-
-
-
 
 
 
@@ -648,48 +519,50 @@ int driveFunction() {
 int count = 0;
 
 double drivespeed = 1;
-while(true) {
+  while(true) {
 
-if(Controller1.ButtonLeft.pressing() and Controller1.ButtonY.pressing()){
+    //these combination of buttons turn the robot to a certain angle so auton setup is precise. (run before a match)
+    if(Controller1.ButtonLeft.pressing() and Controller1.ButtonY.pressing()){
 
-Controller1.rumble("...");
-// Each constant set is in the form of (maxVoltage, kP, kI, kD, startI).
-chassis.set_turn_constants(4, .3, .03, 3, 15);
-chassis.set_turn_exit_conditions(1, 1000, 3000);
-chassis.turn_to_angle(324);
-chassis.set_turn_exit_conditions(2, 100, 750);
-Controller1.rumble("...");
+    Controller1.rumble("...");
+    // Each constant set is in the form of (maxVoltage, kP, kI, kD, startI).
+    chassis.set_turn_constants(4, .3, .03, 3, 15);
+    chassis.set_turn_exit_conditions(1, 1000, 3000);
+    chassis.turn_to_angle(324);
+    chassis.set_turn_exit_conditions(2, 100, 750);
+    Controller1.rumble("...");
 
-}
+    }
 
-else if (Controller1.ButtonRight.pressing() and Controller1.ButtonY.pressing()){
+    else if (Controller1.ButtonRight.pressing() and Controller1.ButtonY.pressing()){
 
-Controller1.rumble("...");
-chassis.set_turn_constants(4, .3, .03, 3, 15);
-chassis.set_turn_exit_conditions(1, 1000, 3000);
-chassis.turn_to_angle(36);
-chassis.set_turn_exit_conditions(2, 100, 750);
-Controller1.rumble("...");
+    Controller1.rumble("...");
+    chassis.set_turn_constants(4, .3, .03, 3, 15);
+    chassis.set_turn_exit_conditions(1, 1000, 3000);
+    chassis.turn_to_angle(36);
+    chassis.set_turn_exit_conditions(2, 100, 750);
+    Controller1.rumble("...");
 
-}
+    }
 
-else{
-float throttle = deadband(controller(primary).Axis3.value(), 12);
-float turn = deadband(controller(primary).Axis1.value(), 12);
-leftFront.spin(fwd, to_volt(throttle+turn), volt);
-leftMid.spin(fwd, to_volt(throttle+turn), volt);
-leftBack.spin(fwd, to_volt(throttle+turn), volt);
-rightFront.spin(fwd, to_volt(throttle-turn), volt);
-rightMid.spin(fwd, to_volt(throttle-turn), volt);
-rightBack.spin(fwd, to_volt(throttle-turn), volt);
+    else{
 
-}
+    //standard arcade drive
+    float throttle = deadband(controller(primary).Axis3.value(), 12);
+    float turn = deadband(controller(primary).Axis1.value(), 12);
+    leftFront.spin(fwd, to_volt(throttle+turn), volt);
+    leftMid.spin(fwd, to_volt(throttle+turn), volt);
+    leftBack.spin(fwd, to_volt(throttle+turn), volt);
+    rightFront.spin(fwd, to_volt(throttle-turn), volt);
+    rightMid.spin(fwd, to_volt(throttle-turn), volt);
+    rightBack.spin(fwd, to_volt(throttle-turn), volt);
 
-this_thread::sleep_for(10);
-}
+    }
 
+    this_thread::sleep_for(10);
+  }
 
-return(0);
+  return(0);
 }
 
 
@@ -698,115 +571,52 @@ return(0);
 int intakeFunction() {
 int count = 0;
 
+  while(true) {
+    Intake.setVelocity(100, percent);
+    Upper.setVelocity(100,percent);
 
-while(true) {
+    if(Controller1.ButtonR1.pressing()){
+      Intake.spin(forward);
+      Upper.spin(forward);
+    }
+    else if(Controller1.ButtonR2.pressing()){
+      Intake.spin(reverse);
+      Upper.spin(reverse);
+    }
+    else{
+      Intake.stop();
+      Upper.stop();
+    }
 
+    this_thread::sleep_for(10);
+  }
 
-Intake.setVelocity(100, percent);
-Upper.setVelocity(100,percent);
-
-
-
-
-/*
-if (opticalsensor.color() == blue) {
-
-
-
-
-
-
-Controller1.rumble("...");
-wait(100,msec);
-Upper.spin(reverse,100,percent);
-wait(1000,msec);
-Upper.spin(forward,100,percent);
-
-
-
+  return(0);
 }
-*/
-
-
-if(Controller1.ButtonR1.pressing()){
-
-
-Intake.spin(forward);
-Upper.spin(forward);
-
-
-}
-else if(Controller1.ButtonR2.pressing()){
-
-
-Intake.spin(reverse);
-Upper.spin(reverse);
-
-
-}
-else{
-
-
-Intake.stop();
-Upper.stop();
-
-
-
-
-}
-
-
-this_thread::sleep_for(10);
-}
-
-
-return(0);
-}
-
-
 
 
 int ThrowAwayRedFunction() {
-int count = 0;
 
+  int count = 0;
 
-sorter.set(false);
+  sorter.set(false);
 
+  while(true) {
+    colorsorter1.setLightPower(100,percent);
 
-while(true) {
-colorsorter1.setLightPower(100,percent);
+    if (colorsorter1.color() == red) {
 
+      sorter.set(true);
+      wait(750,msec);
+      sorter.set(false);
 
-if (colorsorter1.color() == red) {
+    }
 
+    this_thread::sleep_for(10);
+  }
 
-
-
-sorter.set(true);
-
-
-wait(750,msec);
-
-
-sorter.set(false);
-
-
-
-
+  return(0);
 }
-
-
-this_thread::sleep_for(10);
-}
-
-
-return(0);
-}
-
-
-
-
-
 
 
 int rumbleFunction() {
@@ -816,87 +626,68 @@ int rumbleFunction() {
 
 while(true) {
 
-color redring = color(229, 59, 59);
-color blueright = color(0, 182, 246);
+    color redring = color(229, 59, 59);
+    color blueright = color(0, 182, 246);
 
+    wait(10,msec);
 
+    colorsorter1.setLightPower(100,percent);
 
-wait(10,msec);
+    //lets driver know that intake is jammed
 
-colorsorter1.setLightPower(100,percent);
+    if (Upper.current()>2.7) {
 
-if (Upper.current()>2.7) {
+      Controller1.Screen.print(Upper.current());
+      Controller1.rumble("...");
+      Upper.spin(reverse,100,percent);
+      wait(250,msec);
+      Upper.spin(forward,100,percent);
+      wait(250,msec);
 
-Controller1.Screen.print(Upper.current());
-Controller1.rumble("...");
-Upper.spin(reverse,100,percent);
-wait(250,msec);
-Upper.spin(forward,100,percent);
-wait(250,msec);
+    }
 
-}
+    else if (colorsorter1.color() == green) {
 
+      Controller1.rumble("...");
+      wait(50,msec);
+    }
+  }
 
-else if (colorsorter1.color() == green) {
-
-Controller1.rumble("...");
-wait(50,msec);
-
-}
-
-}
-
-return(0);
+  return(0);
 
 }
-
-
-
-
-
-
-
-
-
-
 
 
 int pullerFunction(){
 
-int count = 0;
+  int count = 0;
 
+  while(true){
 
-while(true){
+    Puller.set(false);
 
-Puller.set(false);
+    if(Controller1.ButtonB.pressing()){
 
-if(Controller1.ButtonB.pressing()){
+      Tipper.set(true);
 
-Tipper.set(true);
+    Controller1.rumble("...");
+    }
 
-Controller1.rumble("...");
+    else if(Controller1.ButtonY.pressing()){
 
-}
+      Tipper.set(false);
+    }
 
-else if(Controller1.ButtonY.pressing()){
+    else if(Controller1.ButtonLeft.pressing()){
 
-Tipper.set(false);
+      Puller.set(false);
 
-}
+    }
 
-else if(Controller1.ButtonLeft.pressing()){
+    this_thread::sleep_for(10);
+  }   
 
-
-
-
-Puller.set(false);
-
-}
-this_thread::sleep_for(10);
-}   
-
-
-return(0);
+  return(0);
 }
 
 
@@ -905,142 +696,120 @@ return(0);
 int WallStakesFunction(){
 
 
- int count = 1;
+  int count = 1;
 
 
- while(true){
+  while(true){
 
-this_thread::sleep_for(10); //gives time for other tasks to run
+    this_thread::sleep_for(10); //gives time for other tasks to run
 
- if(Controller1.ButtonRight.pressing()){
+    if(Controller1.ButtonRight.pressing()){
 
-while(rotationSensor.angle(degrees) > 13) {
- WallStakes.spin(reverse, 100, percent);
- }
- while(rotationSensor.angle(degrees) < 13) {
- WallStakes.spin(forward, 100, percent);
+        while(rotationSensor.angle(degrees) > 13) {
+          WallStakes.spin(reverse, 100, percent);
+        }
+        while(rotationSensor.angle(degrees) < 13) {
+          WallStakes.spin(forward, 100, percent);
 
- while(rotationSensor.angle(degrees) > 13) {
- WallStakes.spin(reverse, 100, percent);
- }
- }
+        while(rotationSensor.angle(degrees) > 13) {
+         WallStakes.spin(reverse, 100, percent);
+        }
+        }
 
- WallStakes.stop(hold);
+        WallStakes.stop(hold);
 
-/*
-//Worst Case Macro
-WallStakes.setVelocity(100,percent);
-WallStakes.spinFor(110,degrees);
-*/
+        /*
+        //Worst Case Macro
+        WallStakes.setVelocity(100,percent);
+        WallStakes.spinFor(110,degrees);
+        */
 
-//WallStakes.setVelocity(10,percent);
+        //WallStakes.setVelocity(10,percent);
 
- }
+    }
+    else if(Controller1.ButtonL1.pressing()){
 
- else if(Controller1.ButtonLeft.pressing()){
+      WallStakes.setVelocity(100, percent);
+      WallStakes.spin(forward);
 
-}
-else if(Controller1.ButtonL1.pressing()){
+    }
+    else if(Controller1.ButtonL2.pressing()){
 
+      WallStakes.setVelocity(100, percent);
+      WallStakes.spin(reverse);
 
-WallStakes.setVelocity(100, percent);
-WallStakes.spin(forward);
+    }
+    else{
 
-}
-else if(Controller1.ButtonL2.pressing()){
+    WallStakes.stop(hold);
 
-
-WallStakes.setVelocity(100, percent);
-WallStakes.spin(reverse);
-
-
-}
-else{
-
-WallStakes.stop(hold);
-
-}
-
-
-}
-
-
+    }
+  }
 }
 
 
 int doinkerFunction(){
 
+  int count = 1;
 
-int count = 1;
+  while(true){
 
+    this_thread::sleep_for(10);
+    if(Controller1.ButtonUp.pressing()){
 
-while(true){
+      //DoinkerRight.set(true); //change before every match depending on the alliance color
+      DoinkerLeft.set(true);
+      wait(10,msec);
 
-this_thread::sleep_for(10);
-if(Controller1.ButtonUp.pressing()){
+    }
+    else if(Controller1.ButtonDown.pressing()){
 
-
-//DoinkerRight.set(true);
-DoinkerLeft.set(true);
-wait(10,msec);
-
-}
-
-else if(Controller1.ButtonDown.pressing()){
-
-DoinkerRight.set(false);
-DoinkerLeft.set(false);
-wait(10,msec);
-
-
-}
-}
-
+      DoinkerRight.set(false);
+      DoinkerLeft.set(false);
+      wait(10,msec);
+    }
+  }
 
 return(0);
 
-
 }
-
-
-
 
 int tempFunction(){
 
-
 int count = 1;
 
+  while(true){
 
-while(true){
+    this_thread::sleep_for(10);
 
+    if (rightMid.temperature(temperatureUnits::fahrenheit) > 150){
+      Controller1.rumble("...");
+      Controller1.Screen.print("STOP DRIVING!!!");
+      }
+    else if(rightMid.temperature(temperatureUnits::fahrenheit) < 150){
 
-this_thread::sleep_for(10);
+    }
+    else{
 
-
-if (rightMid.temperature(temperatureUnits::fahrenheit) > 150){
-Controller1.rumble("...");
-Controller1.Screen.print("STOP DRIVING!!!");
-}
-else if(rightMid.temperature(temperatureUnits::fahrenheit) < 150){
-}
-else{
-}
-}
-
+    }
+  }
 
 return(0);
 
-
 }
 
+void TempCode(){
 
+  if (rightMid.temperature(temperatureUnits::fahrenheit) > 130){
+    Controller1.rumble("...");
+    Controller1.Screen.print("STOP DRIVING!!!");
+  }
+    else if(rightMid.temperature(temperatureUnits::fahrenheit) < 120){
+  }
+  else{
 
-
-
-
-
-
-
+  }
+}
 
 int mogoFunction(){
 
@@ -1131,7 +900,6 @@ bool auto_started = false;
 void pre_auton(void) {
 vexcodeInit();
 
-codestopper129 = false;
 
 Inertial.calibrate();
 
@@ -1150,138 +918,107 @@ while(auto_started == false){
 switch(current_auton_selection){
 case 0:
 
-//Brain.Screen.printAt(50, 50, "SOLO AWP RED");
-SoloAwpRedPicture();
-// Brain.Screen.printAt(50, 50, "Elims Scoring Red Right");
-break;
+  //Brain.Screen.printAt(50, 50, "SOLO AWP RED");
 
+  SoloAwpRedPicture(); //puts a custom picure on the brain screen from pictures.cpp
+
+break;
 
 case 1:
 
-
-
-
-Brain.Screen.printAt(50, 50, "Red Pos 6 Ring");
-
-
-//ElimsRedRightPicture();
-wait(1000,msec);
-
+  Brain.Screen.printAt(50, 50, "Red Pos 6 Ring");
+  wait(1000,msec);
 
 case 2:
 
-
-Brain.Screen.printAt(50, 50, "Red Pos 1+2+1 AWP");
-
+  Brain.Screen.printAt(50, 50, "Red Pos 1+2+1 AWP");
 
 break;
 
-
 case 3:
 
-
-Brain.Screen.printAt(50, 50, "Red Left 5 Ring Quals (Bar Touch)");
-
+  Brain.Screen.printAt(50, 50, "Red Left 5 Ring Quals (Bar Touch)");
 
 break;
 
 
 case 4:
 
-
-Brain.Screen.printAt(50, 50, "Red Left Ally + 5 (Bar Touch)");
-
+  Brain.Screen.printAt(50, 50, "Red Left Ally + 5 (Bar Touch)");
 
 break;
-
 
 case 5:
 
-
-Brain.Screen.printAt(50, 50, "Red Left Ally + 6 Elims");
-
+  Brain.Screen.printAt(50, 50, "Red Left Ally + 6 Elims");
 
 break;
-
 
 case 6:
 
+  Brain.Screen.printAt(50, 50, "Solo Awp Blue (Bar Touch)");
 
-Brain.Screen.printAt(50, 50, "Solo Awp Blue (Bar Touch)");
 break;
-
 
 case 7:
 
-
-
-
-Brain.Screen.printAt(50, 50, "Blue Left 6 Ring POS");
-
+  Brain.Screen.printAt(50, 50, "Blue Left 6 Ring POS");
 
 break;
-
 
 case 8:
 
+  Brain.Screen.printAt(50, 50, "Blue Right 1+2+1 Solo Wp");
 
-
-
-Brain.Screen.printAt(50, 50, "Blue Right 1+2+1 Solo Wp");
 break;
-
 
 case 9:
 
+  Brain.Screen.printAt(50, 50, "Blue Right 5 Ring Quals (Bar Touch)");
 
-
-
-Brain.Screen.printAt(50, 50, "Blue Right 5 Ring Quals (Bar Touch)");
 break;
-
 
 case 10:
 
+  Brain.Screen.printAt(50, 50, "Blue Right Ally + 3 (Bar Touch)");
 
-
-
-
-
-Brain.Screen.printAt(50, 50, "Blue Right Ally + 3 (Bar Touch)");
 break;
-
 
 case 11:
 
+  Brain.Screen.printAt(50, 50, "Blue Right 4+1 Elims");
 
-Brain.Screen.printAt(50, 50, "Blue Right 4+1 Elims");
 break;
 
 case 12:
 
+  Brain.Screen.printAt(50, 50, "Skills");
 
-Brain.Screen.printAt(50, 50, "Skills");
 break;
-
 
 case 13:
 
-
 Brain.Screen.printAt(50, 50, "Testing");
+
 break;
 
 
-
 }
+
 if(Brain.Screen.pressing()){
-while(Brain.Screen.pressing()) {}
-Brain.Screen.clearScreen();
-current_auton_selection ++;
-} else if (current_auton_selection == 14){
-current_auton_selection = 0;
+
+  while(Brain.Screen.pressing()) {}
+
+  Brain.Screen.clearScreen();
+  current_auton_selection ++;
+} 
+
+else if (current_auton_selection == 14){
+  current_auton_selection = 0;
 }
 task::sleep(10);
-}
+  }
+
 }
 
 
@@ -2368,311 +2105,6 @@ break;
 
 
 
-
-void DoinkerCode(){
-if(Controller1.ButtonUp.pressing()){
-Doinker.set(true);
-Controller1.rumble("...");
-}
-else if(Controller1.ButtonDown.pressing()){
-Doinker.set(false);
-
-
-
-
-
-
-}
-else{
-//Nothing happens
-}
-}
-
-
-void IntakeUpCode(){
-if(Controller1.ButtonY.pressing()){
-Puller.set(true);
-}
-else if(Controller1.ButtonB.pressing()){
-Puller.set(false);
-}
-else{
-//Nothing happens
-}
-}
-
-
-
-
-
-
-
-void MogoCode(){
-if(Controller1.ButtonX.pressing()){
-MOGO.set(true);
-mogo.set(true);
-}
-else if(Controller1.ButtonA.pressing()){
-MOGO.set(false);
-mogo.set(false);
-}
-else{
-//Nothing happens
-}
-}
-
-
-
-
-
-
-void positionCode(){
-
-
-
-
-while(Controller1.ButtonRight.pressing()){
-double kp = 1;
-double target = 100;
-double currentPosition = rotationSensor.angle(degrees);
-double error = (target-currentPosition)*kp;
-
-
-WallStakes.spin(forward, error, percent);
-}
-}
-
-
-
-
-void descoreCode(){
-
-
-
-
-if(Controller1.ButtonLeft.pressing()){
-WallStakes.setVelocity(10, percent);
-while (rotationSensor.angle(degrees)>100){
-Controller1.rumble("...");
-WallStakes.spin(forward);
-
-
-}
-
-
-WallStakes.stop(hold);
-}
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-void intakeCode(){
-Intake.setVelocity(100, percent);
-if(Controller1.ButtonR1.pressing()){
-
-
-Intake.spin(forward);
-Upper.spin(forward);
-
-
-}
-else if(Controller1.ButtonR2.pressing()){
-
-
-Intake.spin(reverse);
-Upper.spin(reverse);
-
-
-}
-else{
-
-
-Intake.stop();
-Upper.stop();
-
-
-
-
-}
-
-
-}
-
-
-
-
-
-
-void WallStakesCode(){
-
-
-
-
-if(Controller1.ButtonRight.pressing()){
-
-
-while(Controller1.ButtonRight.pressing()){
-double kp = 1;
-double target = 0;
-double currentPosition = rotationSensor.angle(degrees);
-double error = (target-currentPosition)*kp;
-
-
-WallStakes.spin(forward, error, percent);
-
-
-}
-
-
-
-
-}
-else if(Controller1.ButtonL1.pressing()){
-
-
-
-
-WallStakes.setVelocity(100, percent);
-WallStakes.spin(forward);
-
-
-}
-else if(Controller1.ButtonL2.pressing()){
-
-
-
-
-WallStakes.setVelocity(100, percent);
-WallStakes.spin(reverse);
-}
-
-
-else{
-
-
-WallStakes.stop(hold);
-
-
-}
-
-
-}
-
-
-/*
-
-
-void WallStakesCode(){
-
-
-WallStakes.setVelocity(100, percent);
-
-
-if(Controller1.ButtonL1.pressing()){
-
-
-WallStakes.spin(forward);
-
-
-}
-else if(Controller1.ButtonL2.pressing()){
-
-
-WallStakes.spin(reverse);
-
-
-else{
-
-
-WallStakes.stop(hold);
-
-
-
-
-}
-
-
-}
-*/
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-void TempCode(){
-
-
-if (rightMid.temperature(temperatureUnits::fahrenheit) > 130){
-Controller1.rumble("...");
-Controller1.Screen.print("STOP DRIVING!!!");
-}
-else if(rightMid.temperature(temperatureUnits::fahrenheit) < 120){
-}
-else{
-}
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /*---------------------------------------------------------------------------*/
 /* */
 /* User Control Task */
@@ -2725,37 +2157,21 @@ while (1) {
 
 
 
+//all switched to tasks
 
 //intakeCode();
-
-
 //positionCode();
-
-
 //WallStakesCode();
-
-
 //selectorCode();
 //descoreCode();
-
-
-
-
 //ThrowAwayRed();
 //ThrowAwayBlue();
-
-
 //DoinkerCode();
-
-
 // MogoCode();
-
-
 //TempCode();
 //arcadeDrive();
-
-
 //chassis.control_arcade();
+
 wait(20, msec); // Sleep the task for a short amount of time to
 // prevent wasted resources.
 }
@@ -2768,33 +2184,31 @@ wait(20, msec); // Sleep the task for a short amount of time to
 
 
 int main() {
-// Set up callbacks for autonomous and driver control periods.
-colorsorter1.integrationTime(5);
-colorsorter2.integrationTime(5);
 
-Competition.autonomous(autonomous);
-Competition.drivercontrol(usercontrol);
-pre_auton();
+  // Set up callbacks for autonomous and driver control periods.
+  colorsorter1.integrationTime(5);
+  colorsorter2.integrationTime(5);
+
+  Competition.autonomous(autonomous);
+  Competition.drivercontrol(usercontrol);
+  pre_auton();
 
 
+  //ColorSortBlue and ColorSortRed functions need to be switched before every match
 
-codestopper129 = false;
+  //ColorSortBlue();
 
-//ColorSortBlue and ColorSortRed functions need to be switched before every match
+  ColorSortRed();
 
-//ColorSortBlue();
+  //antiJamCode(); //now included in colorsortfunctions
 
-ColorSortRed();
+  // Run the pre-autonomous function.
 
-//antiJamCode(); //now included in colorsortfunctions
-
-// Run the pre-autonomous function.
-
-//ColorSortRed();
-// Prevent main from exiting with an infinite loop.
-while (true) {
-wait(100, msec);
-}
+  //ColorSortRed();
+  // Prevent main from exiting with an infinite loop.
+  while (true) {
+    wait(100, msec);
+  }
 }
 
 
