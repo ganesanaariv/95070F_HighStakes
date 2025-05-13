@@ -10,19 +10,8 @@ void default_constants(){
   // Each exit condition set is in the form (settle_error, settle_time, timeout).
   chassis.set_drive_exit_conditions(1, 75, 3000);
 
-  //////////CHANGED THIS
-  ////////CHANGED THIS
-  ///////CHANGED THIS
-  ///CHANGED THIS
-  //////CHANGED THIS
-
   chassis.set_turn_exit_conditions(2, 100, 600);
 
-  //////CHANGED THIS
-  //////////////CHANGED THIS
-  //////CHANGED THIS
-  /////CHANGED THIS
-  ///CHANGED THIS
   chassis.set_swing_exit_conditions(1, 100, 750);
 }
 
